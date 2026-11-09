@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voice Depth & Clarity Trainer</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --surface2: #243044;
+      --border: #2d3a4f;
+      --text: #e8eef7;
+      --muted: #8b9bb4;
+      --accent: #5b8def;
+      --accent2: #3ecf8e;
+      --accent3: #f0a05a;
+      --danger: #e86a6a;
+      --radius: 14px;
+      --shadow: 0 8px 32px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+    .app {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 20px 16px 60px;
+    }
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+      padding-top: 12px;
+    }
+    header h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #7aa2f7, #3ecf8e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    header p { color: var(--muted); margin-top: 6px; font-size: 0.95rem; }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      background: var(--surface);
+      padding: 6px;
+      border-radius: 12px;
+      margin-bottom: 22px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+    }
+    .tab {
+      flex: 1;
+      min-width: 100px;
+      padding: 10px 12px;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.88rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .tab:hover { color: var(--text); background: var(--surface2); }
+    .tab.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 12px rgba(91,141,239,0.35);
+    }
+
+    .panel { display: none; }
+    .panel.active { display: block; animation: fadeIn 0.25s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+    .card h2 {
+      font-size: 1.15rem;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card h3 { font-size: 1rem; margin: 14px 0 8px; color: var(--accent2); }
+    .card p, .card li { color: var(--muted); font-size: 0.92rem; }
+    .card ul, .card ol { padding-left: 18px; margin: 8px 0; }
+    .card li { margin-bottom: 4px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 18px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .btn-success { background: var(--accent2); color: #0a1a12; }
+    .btn-success:hover { filter: brightness(1.08); }
+    .btn-warn { background: var(--accent3); color: #1a1208; }
+    .btn-ghost {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--border); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+
+    .pitch-display {
+      text-align: center;
+      padding: 24px 12px;
+      background: linear-gradient(180deg, var(--surface2), var(--surface));
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin: 14px 0;
+    }
+    .pitch-note {
+      font-size: 3.2rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--accent2);
+      line-height: 1.1;
+    }
+    .pitch-hz { font-size: 1.1rem; color: var(--muted); margin-top: 4px; }
+    .pitch-status { font-size: 0.85rem; color: var(--muted); margin-top: 8px; min-height: 1.2em; }
+    .meter {
+      height: 8px;
+      background: var(--border);
+      border-radius: 4px;
+      margin-top: 14px;
+      overflow: hidden;
+    }
+    .meter-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 4px;
+      transition: width 0.08s linear;
+    }
+
+    .range-result {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .range-box {
+      background: var(--surface2);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+      border: 1px solid var(--border);
+    }
+    .range-box .label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .range-box .value { font-size: 1.5rem; font-weight: 700; margin-top: 4px; color: var(--accent); }
+    .range-box.highlight .value { color: var(--accent2); }
+    .suggestion {
+      margin-top: 16px;
+      padding: 14px 16px;
+      background: rgba(62,207,142,0.1);
+      border: 1px solid rgba(62,207,142,0.35);
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+    .suggestion strong { color: var(--accent2); }
+
+    .exercise {
+      border-left: 3px solid var(--accent);
+      padding-left: 14px;
+      margin: 16px 0;
+    }
+    .exercise h4 { font-size: 0.98rem; margin-bottom: 6px; }
+    .timer {
+      font-variant-numeric: tabular-nums;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent3);
+      margin: 8px 0;
+    }
+
+    .twister {
+      background: var(--surface2);
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin: 10px 0;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .twister:hover { border-color: var(--accent); }
+    .twister.active { border-color: var(--accent2); background: rgba(62,207,142,0.08); }
+    .twister p { color: var(--text); font-size: 1.05rem; font-weight: 500; }
+    .twister small { color: var(--muted); display: block; margin-top: 4px; }
+
+    .rec-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--danger);
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    .rec-dot {
+      width: 10px; height: 10px;
+      background: var(--danger);
+      border-radius: 50%;
+      animation: blink 1s infinite;
+    }
+    @keyframes blink { 50% { opacity: 0.3; } }
+
+    audio { width: 100%; margin-top: 10px; border-radius: 8px; }
+
+    .progress-bar {
+      display: flex;
+      gap: 6px;
+      margin: 12px 0;
+    }
+    .progress-step {
+      flex: 1;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+    }
+    .progress-step.done { background: var(--accent2); }
+    .progress-step.current { background: var(--accent); }
+
+    .tip {
+      background: rgba(91,141,239,0.1);
+      border: 1px solid rgba(91,141,239,0.3);
+      border-radius: 10px;
+      padding: 12px 14px;
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-top: 12px;
+    }
+    .tip strong { color: var(--accent); }
+
+    .alert {
+      background: rgba(232,106,106,0.12);
+      border: 1px solid rgba(232,106,106,0.4);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 0.9rem;
+      color: var(--text);
+      margin-top: 12px;
+      display: none;
+    }
+    .alert.show { display: block; }
+    .alert h4 { color: var(--danger); margin-bottom: 6px; font-size: 0.95rem; }
+    .alert ol { margin: 8px 0 0 18px; color: var(--muted); }
+    .alert li { margin-bottom: 4px; }
+
+    .passage {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin: 12px 0;
+      font-size: 1.08rem;
+      line-height: 1.7;
+      color: var(--text);
+      max-height: 280px;
+      overflow-y: auto;
+    }
+    .passage-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 8px;
+    }
+    .passage-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .passage-nav button {
+      padding: 7px 12px;
+      font-size: 0.82rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 600;
+    }
+    .passage-nav button.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .passage-nav button:hover { color: var(--text); border-color: var(--accent); }
+
+    .live-pitch-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
+      font-size: 0.9rem;
+    }
+    .live-pitch-bar .note {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--accent2);
+      min-width: 3.5em;
+    }
+    .live-pitch-bar .target {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+
+    .disclaimer {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 28px;
+      opacity: 0.8;
+    }
+
+    @media (max-width: 560px) {
+      .range-result { grid-template-columns: 1fr; }
+      header h1 { font-size: 1.4rem; }
+      .pitch-note { font-size: 2.5rem; }
+      .passage { font-size: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Voice Depth & Clarity Trainer</h1>
+      <p>Deepen your voice · Speak clearly · Build better cadence</p>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="range">Vocal Range</button>
+      <button class="tab" data-tab="read">Read Aloud</button>
+      <button class="tab" data-tab="depth">Deeper Voice</button>
+      <button class="tab" data-tab="clarity">Clarity</button>
+      <button class="tab" data-tab="practice">Record</button>
+      <button class="tab" data-tab="tips">Tips</button>
+    </nav>
+
+    <!-- ========== RANGE ========== -->
+    <section id="range" class="panel active">
+      <div class="card">
+        <h2>🎯 Find Your Vocal Range</h2>
+        <p>Discover your lowest and highest comfortable notes, then get a recommended speaking pitch for a deeper, grounded voice.</p>
+
+        <div class="pitch-display">
+          <div class="pitch-note" id="liveNote">—</div>
+          <div class="pitch-hz" id="liveHz">Hz: —</div>
+          <div class="pitch-status" id="pitchStatus">Click Start and allow microphone access</div>
+          <div class="meter"><div class="meter-fill" id="volumeMeter"></div></div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="startMicBtn">🎤 Start Microphone</button>
+          <button class="btn btn-ghost" id="stopMicBtn" disabled>Stop</button>
+        </div>
+
+        <div class="alert" id="micAlert">
+          <h4>Microphone not available</h4>
+          <p id="micAlertMsg"></p>
+          <ol>
+            <li><strong>Open this file via a local server</strong> (browsers often block mic on plain <code>file://</code> pages). Easiest ways:
+              <ul style="margin-top:4px;">
+                <li>Chrome: drag the HTML file into a new tab, or use an extension like “Web Server for Chrome”</li>
+                <li>Or run in terminal: <code>python3 -m http.server 8080</code> then open <code>http://localhost:8080/voice-trainer.html</code></li>
+                <li>Or use VS Code “Live Server” / similar</li>
+              </ul>
+            </li>
+            <li>Click the lock / site settings icon in the address bar → set Microphone to <strong>Allow</strong>.</li>
+            <li>Make sure no other app is exclusively using the mic.</li>
+            <li>Try Chrome or Edge if another browser fails.</li>
+          </ol>
+        </div>
+
+        <h3>Capture your range</h3>
+        <p>Warm up first (hum for 30s). Then hold your <strong>lowest comfortable clear note</strong> (not fry) and click Capture Low. Repeat for highest comfortable chest/mixed note.</p>
+
+        <div class="btn-row">
+          <button class="btn btn-success" id="captureLowBtn" disabled>Capture Lowest</button>
+          <button class="btn btn-warn" id="captureHighBtn" disabled>Capture Highest</button>
+          <button class="btn btn-ghost" id="resetRangeBtn">Reset</button>
+        </div>
+
+        <div class="range-result">
+          <div class="range-box">
+            <div class="label">Lowest</div>
+            <div class="value" id="lowNote">—</div>
+            <div class="pitch-hz" id="lowHz"></div>
+          </div>
+          <div class="range-box">
+            <div class="label">Highest</div>
+            <div class="value" id="highNote">—</div>
+            <div class="pitch-hz" id="highHz"></div>
+          </div>
+        </div>
+
+        <div class="range-box highlight" style="margin-top:12px;">
+          <div class="label">Suggested Speaking Pitch (deeper target)</div>
+          <div class="value" id="suggestNote">—</div>
+          <div class="pitch-hz" id="suggestHz"></div>
+        </div>
+
+        <div class="suggestion" id="rangeAdvice" style="display:none;">
+          <strong>Recommendation:</strong> <span id="adviceText"></span>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>How the suggestion works</h2>
+        <p>Most people speak higher than their optimal pitch because of tension or habit. A deeper, resonant speaking voice usually sits near the <strong>lower third</strong> of your comfortable range — not the absolute lowest note (which can sound strained or fry-like).</p>
+        <ul>
+          <li>We take your lowest clear note and move up roughly a minor third to a fourth.</li>
+          <li>This gives a grounded, authoritative tone while staying sustainable for conversation.</li>
+          <li>Practice speaking at this pitch with good breath support and chest resonance.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========== READ ALOUD ========== -->
+    <section id="read" class="panel">
+      <div class="card">
+        <h2>📖 Read Aloud Practice</h2>
+        <p>Classic voice-training passages. Read slowly at your <strong>target speaking pitch</strong>, with clear articulation and chest resonance. Use the live pitch meter if the mic is on.</p>
+
+        <div class="live-pitch-bar" id="readPitchBar" style="display:none;">
+          <div>
+            <span class="note" id="readLiveNote">—</span>
+            <span id="readLiveHz" style="color:var(--muted);font-size:0.85rem;"></span>
+          </div>
+          <div class="target" id="readTarget">Target: —</div>
+        </div>
+
+        <div class="passage-nav" id="passageNav"></div>
+        <div class="passage-label" id="passageLabel">Passage 1</div>
+        <div class="passage" id="passageText"></div>
+
+        <div class="tip" style="margin-top:14px;">
+          <strong>How to practice:</strong> Start the mic on the Range tab first (so pitch shows here). Read one sentence at a time. Aim for your suggested pitch. Exaggerate consonants slightly, then relax into natural clarity. Pause at commas and periods.
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== DEPTH ========== -->
+    <section id="depth" class="panel">
+      <div class="card">
+        <h2>🌊 Deeper Voice Training</h2>
+        <p>These exercises train resonance, breath support, and comfortable low pitch. Do them daily for 8–12 minutes. Never force or push into pain/hoarseness.</p>
+
+        <div class="progress-bar" id="depthProgress">
+          <div class="progress-step current" data-step="0"></div>
+          <div class="progress-step" data-step="1"></div>
+          <div class="progress-step" data-step="2"></div>
+          <div class="progress-step" data-step="3"></div>
+          <div class="progress-step" data-step="4"></div>
+        </div>
+
+        <div id="depthExercises"></div>
+
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="prevDepth">← Prev</button>
+          <button class="btn btn-primary" id="nextDepth">Next →</button>
+          <button class="btn btn-success" id="startDepthTimer">Start Timer</button>
+        </div>
+        <div class="timer" id="depthTimer" style="display:none;">00:00</div>
+      </div>
+    </section>
+
+    <!-- ========== CLARITY ========== -->
+    <section id="clarity" class="panel">
+      <div class="card">
+        <h2>🗣️ Clarity, Pronunciation & Cadence</h2>
+        <p>Clear speech comes from precise articulation, controlled pace, and good breath. Practice these daily.</p>
+
+        <h3>1. Articulation warm-ups</h3>
+        <div class="exercise">
+          <h4>Puh-Tuh-Kuh (diadochokinesis)</h4>
+          <p>Repeat “puh-tuh-kuh” clearly and evenly. Start slow, then increase speed while keeping every consonant crisp. Do 3 sets of 10.</p>
+        </div>
+        <div class="exercise">
+          <h4>Over-articulation reading</h4>
+          <p>Read a paragraph while deliberately exaggerating every consonant and opening vowels fully. Then read it again at normal effort but keep the clarity.</p>
+        </div>
+        <div class="exercise">
+          <h4>Final consonants</h4>
+          <p>Practice words ending in T, D, K, S, P. Finish every ending: “night”, “asked”, “costs”, “results”. Then put them in short sentences.</p>
+        </div>
+
+        <h3>2. Tongue twisters</h3>
+        <p>Click one, read it slowly and clearly 3×, then at normal pace 3×, then slightly faster while staying clean.</p>
+        <div id="twisters"></div>
+
+        <h3>3. Cadence & pacing</h3>
+        <ul>
+          <li><strong>Slow down</strong> — rushing raises pitch and blurs words.</li>
+          <li><strong>Pause at punctuation</strong> and between ideas. Silence adds weight.</li>
+          <li><strong>Downward inflection</strong> at the end of statements sounds more confident than upward (question-like) endings.</li>
+          <li><strong>Chunk thoughts</strong> — speak in short phrases of 5–9 words, then breathe.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ========== PRACTICE / RECORD ========== -->
+    <section id="practice" class="panel">
+      <div class="card">
+        <h2>🎙️ Record & Review</h2>
+        <p>Record yourself reading or speaking. Listen back for pitch, clarity, and pace. Compare over days.</p>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" id="recStart">● Record</button>
+          <button class="btn btn-danger" id="recStop" disabled>■ Stop</button>
+        </div>
+        <div id="recStatus" style="margin-top:10px;"></div>
+        <div id="recordings"></div>
+      </div>
+
+      <div class="card">
+        <h2>Daily 10-minute routine</h2>
+        <ol style="padding-left:18px; color:var(--muted); font-size:0.92rem;">
+          <li style="margin-bottom:6px;"><strong>1 min</strong> — Diaphragmatic breathing (belly expands, shoulders still)</li>
+          <li style="margin-bottom:6px;"><strong>2 min</strong> — Gentle humming + lip trills at comfortable low pitch</li>
+          <li style="margin-bottom:6px;"><strong>2 min</strong> — Pitch glides down to your lowest easy note</li>
+          <li style="margin-bottom:6px;"><strong>2 min</strong> — Articulation (puh-tuh-kuh + one tongue twister)</li>
+          <li style="margin-bottom:6px;"><strong>3 min</strong> — Read aloud at your target speaking pitch, focusing on chest resonance and clear endings</li>
+        </ol>
+        <div class="tip">
+          <strong>Consistency &gt; intensity.</strong> 10 minutes daily beats a long strained session once a week. Stop if you feel tightness, pain, or hoarseness.
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== TIPS ========== -->
+    <section id="tips" class="panel">
+      <div class="card">
+        <h2>💡 Key Principles for a Deeper Voice</h2>
+        <ul>
+          <li><strong>Resonance &gt; raw pitch.</strong> A mid-pitch voice with strong chest resonance often sounds deeper than a forced low pitch.</li>
+          <li><strong>Breath support.</strong> Speak on a steady exhale from the diaphragm. Shallow chest breathing raises pitch and creates tension.</li>
+          <li><strong>Relax the throat.</strong> Yawn-sigh and “invisible yawn” (throat open, mouth almost closed) lower the larynx naturally.</li>
+          <li><strong>Posture.</strong> Head balanced over spine, shoulders down, chest open. Chin-tucking or neck tension kills depth.</li>
+          <li><strong>Hydration.</strong> Dry folds raise pitch and effort. Sip water throughout the day.</li>
+          <li><strong>Don’t force the larynx down</strong> with the tongue or by pushing. That creates tension and can harm the voice.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>💡 Clarity & Confidence</h2>
+        <ul>
+          <li>Open the mouth more than feels natural when practicing — under-articulation is extremely common.</li>
+          <li>Record yourself weekly. Progress is hard to hear day-to-day but obvious over weeks.</li>
+          <li>Smile slightly while speaking (when appropriate) — it can improve resonance and friendliness without raising pitch much.</li>
+          <li>Practice in real conversations, not only alone. Transfer is the goal.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>⚠️ Safety</h2>
+        <p>These are general voice-hygiene and training ideas, not medical advice. If you have persistent hoarseness, pain, or voice problems, see a doctor or speech-language pathologist / voice therapist. Never push into pain or vocal fry for long periods.</p>
+      </div>
+    </section>
+
+    <p class="disclaimer">Runs entirely in your browser. Microphone data never leaves your device. For educational use.</p>
+  </div>
+
+  <script>
+    // ========== Pitch detection (YIN-inspired) ==========
+    function yinPitch(buffer, sampleRate, threshold = 0.15) {
+      const n = buffer.length;
+      const tauMax = Math.floor(Math.min(n / 2, sampleRate / 60));
+      const tauMin = Math.floor(sampleRate / 500);
+
+      const diff = new Float32Array(tauMax + 1);
+      for (let tau = 1; tau <= tauMax; tau++) {
+        let sum = 0;
+        for (let i = 0; i < n - tau; i++) {
+          const d = buffer[i] - buffer[i + tau];
+          sum += d * d;
+        }
+        diff[tau] = sum;
+      }
+
+      const cmnd = new Float32Array(tauMax + 1);
+      cmnd[0] = 1;
+      let running = 0;
+      for (let tau = 1; tau <= tauMax; tau++) {
+        running += diff[tau];
+        cmnd[tau] = running === 0 ? 1 : (diff[tau] * tau) / running;
+      }
+
+      let tauEst = -1;
+      for (let tau = tauMin; tau <= tauMax; tau++) {
+        if (cmnd[tau] < threshold) {
+          while (tau + 1 <= tauMax && cmnd[tau + 1] < cmnd[tau]) tau++;
+          tauEst = tau;
+          break;
+        }
+      }
+      if (tauEst === -1) {
+        let minV = Infinity;
+        for (let tau = tauMin; tau <= tauMax; tau++) {
+          if (cmnd[tau] < minV) { minV = cmnd[tau]; tauEst = tau; }
+        }
+        if (minV > 0.4) return null;
+      }
+
+      let bestTau = tauEst;
+      if (tauEst > 0 && tauEst < tauMax) {
+        const s0 = cmnd[tauEst - 1], s1 = cmnd[tauEst], s2 = cmnd[tauEst + 1];
+        const denom = s0 - 2 * s1 + s2;
+        if (denom !== 0) {
+          const shift = (s0 - s2) / (2 * denom);
+          bestTau = tauEst + Math.max(-1, Math.min(1, shift));
+        }
+      }
+      const freq = sampleRate / bestTau;
+      if (freq < 60 || freq > 500) return null;
+      return freq;
+    }
+
+    const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    function freqToNote(freq) {
+      if (!freq || freq <= 0) return { name: '—', midi: null, freq: null };
+      const midi = Math.round(69 + 12 * Math.log2(freq / 440));
+      const name = NOTE_NAMES[((midi % 12) + 12) % 12] + Math.floor(midi / 12 - 1);
+      return { name, midi, freq };
+    }
+    function midiToFreq(midi) {
+      return 440 * Math.pow(2, (midi - 69) / 12);
+    }
+    function suggestSpeakingPitch(lowMidi, highMidi) {
+      if (lowMidi == null) return null;
+      const span = (highMidi != null) ? (highMidi - lowMidi) : 12;
+      const offset = Math.max(3, Math.min(5, Math.round(span / 4)));
+      const target = lowMidi + offset;
+      return { midi: target, freq: midiToFreq(target), name: freqToNote(midiToFreq(target)).name };
+    }
+
+    // ========== Audio / mic ==========
+    let audioCtx = null, analyser = null, mediaStream = null, rafId = null;
+    let currentFreq = null;
+    let lowMidi = null, highMidi = null;
+    let lowFreq = null, highFreq = null;
+
+    const liveNote = document.getElementById('liveNote');
+    const liveHz = document.getElementById('liveHz');
+    const pitchStatus = document.getElementById('pitchStatus');
+    const volumeMeter = document.getElementById('volumeMeter');
+    const startMicBtn = document.getElementById('startMicBtn');
+    const stopMicBtn = document.getElementById('stopMicBtn');
+    const captureLowBtn = document.getElementById('captureLowBtn');
+    const captureHighBtn = document.getElementById('captureHighBtn');
+    const micAlert = document.getElementById('micAlert');
+    const micAlertMsg = document.getElementById('micAlertMsg');
+
+    function showMicHelp(msg) {
+      micAlertMsg.textContent = msg || 'The browser blocked or could not access the microphone.';
+      micAlert.classList.add('show');
+    }
+    function hideMicHelp() {
+      micAlert.classList.remove('show');
+    }
+
+    async function startMic() {
+      hideMicHelp();
+      pitchStatus.textContent = 'Requesting microphone…';
+
+      // Secure context check
+      if (!window.isSecureContext && location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+        showMicHelp('This page is not in a secure context (opened as a local file). Browsers often block the microphone on file:// URLs.');
+        pitchStatus.textContent = 'Microphone blocked — see help below';
+        return;
+      }
+
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showMicHelp('This browser does not support getUserMedia. Try Chrome or Edge on a secure page (https or localhost).');
+        pitchStatus.textContent = 'Microphone API unavailable';
+        return;
+      }
+
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          }
+        });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Resume if suspended (common after user gesture)
+        if (audioCtx.state === 'suspended') {
+          await audioCtx.resume();
+        }
+        const source = audioCtx.createMediaStreamSource(mediaStream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 2048;
+        analyser.smoothingTimeConstant = 0.3;
+        source.connect(analyser);
+        startMicBtn.disabled = true;
+        stopMicBtn.disabled = false;
+        captureLowBtn.disabled = false;
+        captureHighBtn.disabled = false;
+        pitchStatus.textContent = 'Listening… hum or sing a steady note';
+        document.getElementById('readPitchBar').style.display = 'flex';
+        updateReadTarget();
+        detectLoop();
+      } catch (e) {
+        console.error(e);
+        let msg = e.message || String(e);
+        if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+          msg = 'Permission denied. Click the lock icon in the address bar and allow Microphone, then try again.';
+        } else if (e.name === 'NotFoundError') {
+          msg = 'No microphone found. Plug one in or check system settings.';
+        } else if (e.name === 'NotReadableError') {
+          msg = 'Microphone is in use by another app. Close other video/call apps and try again.';
+        }
+        showMicHelp(msg);
+        pitchStatus.textContent = 'Microphone access denied or unavailable';
+      }
+    }
+
+    function stopMic() {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+      if (audioCtx) audioCtx.close();
+      audioCtx = null; analyser = null; mediaStream = null;
+      startMicBtn.disabled = false;
+      stopMicBtn.disabled = true;
+      captureLowBtn.disabled = true;
+      captureHighBtn.disabled = true;
+      liveNote.textContent = '—';
+      liveHz.textContent = 'Hz: —';
+      pitchStatus.textContent = 'Microphone stopped';
+      volumeMeter.style.width = '0%';
+      document.getElementById('readLiveNote').textContent = '—';
+      document.getElementById('readLiveHz').textContent = '';
+    }
+
+    function detectLoop() {
+      if (!analyser) return;
+      const buf = new Float32Array(analyser.fftSize);
+      analyser.getFloatTimeDomainData(buf);
+
+      let sum = 0;
+      for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+      const rms = Math.sqrt(sum / buf.length);
+      const vol = Math.min(100, rms * 400);
+      volumeMeter.style.width = vol + '%';
+
+      const freq = yinPitch(buf, audioCtx.sampleRate);
+      if (freq && rms > 0.01) {
+        currentFreq = freq;
+        const note = freqToNote(freq);
+        liveNote.textContent = note.name;
+        liveHz.textContent = `Hz: ${freq.toFixed(1)}`;
+        pitchStatus.textContent = 'Hold steady to capture';
+        document.getElementById('readLiveNote').textContent = note.name;
+        document.getElementById('readLiveHz').textContent = ' · ' + freq.toFixed(0) + ' Hz';
+      } else {
+        currentFreq = null;
+        if (rms < 0.008) {
+          liveNote.textContent = '—';
+          liveHz.textContent = 'Hz: —';
+          pitchStatus.textContent = 'Speak or hum into the mic…';
+          document.getElementById('readLiveNote').textContent = '—';
+          document.getElementById('readLiveHz').textContent = '';
+        }
+      }
+      rafId = requestAnimationFrame(detectLoop);
+    }
+
+    function updateRangeUI() {
+      if (lowMidi != null) {
+        document.getElementById('lowNote').textContent = freqToNote(lowFreq).name;
+        document.getElementById('lowHz').textContent = lowFreq.toFixed(1) + ' Hz';
+      } else {
+        document.getElementById('lowNote').textContent = '—';
+        document.getElementById('lowHz').textContent = '';
+      }
+      if (highMidi != null) {
+        document.getElementById('highNote').textContent = freqToNote(highFreq).name;
+        document.getElementById('highHz').textContent = highFreq.toFixed(1) + ' Hz';
+      } else {
+        document.getElementById('highNote').textContent = '—';
+        document.getElementById('highHz').textContent = '';
+      }
+
+      const sug = suggestSpeakingPitch(lowMidi, highMidi);
+      const adviceEl = document.getElementById('rangeAdvice');
+      if (sug) {
+        document.getElementById('suggestNote').textContent = sug.name;
+        document.getElementById('suggestHz').textContent = sug.freq.toFixed(1) + ' Hz';
+        adviceEl.style.display = 'block';
+        document.getElementById('adviceText').textContent =
+          `Aim to speak around ${sug.name} (~${sug.freq.toFixed(0)} Hz). Practice humming and reading at this pitch with chest resonance. It should feel easy and supported, not pushed.`;
+      } else {
+        document.getElementById('suggestNote').textContent = '—';
+        document.getElementById('suggestHz').textContent = '';
+        adviceEl.style.display = 'none';
+      }
+      updateReadTarget();
+      try {
+        localStorage.setItem('voiceRange', JSON.stringify({ lowMidi, highMidi, lowFreq, highFreq }));
+      } catch (_) {}
+    }
+
+    function updateReadTarget() {
+      const sug = suggestSpeakingPitch(lowMidi, highMidi);
+      const el = document.getElementById('readTarget');
+      if (sug) el.textContent = 'Target: ' + sug.name + ' (~' + sug.freq.toFixed(0) + ' Hz)';
+      else el.textContent = 'Target: set range first';
+    }
+
+    startMicBtn.addEventListener('click', startMic);
+    stopMicBtn.addEventListener('click', stopMic);
+    captureLowBtn.addEventListener('click', () => {
+      if (!currentFreq) { pitchStatus.textContent = 'No clear pitch detected — hold a steady note'; return; }
+      lowFreq = currentFreq;
+      lowMidi = freqToNote(currentFreq).midi;
+      updateRangeUI();
+      pitchStatus.textContent = `Lowest captured: ${freqToNote(currentFreq).name}`;
+    });
+    captureHighBtn.addEventListener('click', () => {
+      if (!currentFreq) { pitchStatus.textContent = 'No clear pitch detected — hold a steady note'; return; }
+      highFreq = currentFreq;
+      highMidi = freqToNote(currentFreq).midi;
+      updateRangeUI();
+      pitchStatus.textContent = `Highest captured: ${freqToNote(currentFreq).name}`;
+    });
+    document.getElementById('resetRangeBtn').addEventListener('click', () => {
+      lowMidi = highMidi = lowFreq = highFreq = null;
+      updateRangeUI();
+    });
+
+    try {
+      const saved = JSON.parse(localStorage.getItem('voiceRange') || 'null');
+      if (saved) {
+        lowMidi = saved.lowMidi; highMidi = saved.highMidi;
+        lowFreq = saved.lowFreq; highFreq = saved.highFreq;
+        updateRangeUI();
+      }
+    } catch (_) {}
+
+    // ========== Tabs ==========
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab).classList.add('active');
+      });
+    });
+
+    // ========== Practice passages ==========
+    const passages = [
+      {
+        title: 'Rainbow Passage',
+        text: `When the sunlight strikes raindrops in the air, they act as a prism and form a rainbow. The rainbow is a division of white light into many beautiful colors. These take the shape of a long round arch, with its path high above, and its two ends apparently beyond the horizon. There is, according to legend, a boiling pot of gold at one end. People look, but no one ever finds it. When a man looks for something beyond his reach, his friends say he is looking for the pot of gold at the end of the rainbow. Throughout the centuries people have explained the rainbow in various ways. Some have accepted it as a miracle without physical explanation. To the Hebrews it was a token that there would be no more universal floods. The Greeks used to imagine that it was a sign from the gods to foretell war or heavy rain. The Norsemen considered the rainbow as a bridge over which the gods passed from earth to their home in the sky. Others have tried to explain the phenomenon physically. Aristotle thought that the rainbow was caused by reflection of the sun's rays by the rain. Since then physicists have found that it is not reflection, but refraction by the raindrops which causes the rainbows. Many complicated ideas about the rainbow have been formed. The difference in the rainbow depends considerably upon the size of the drops, and the width of the colored band increases as the size of the drops increases. The actual primary rainbow observed is said to be the effect of super-imposition of a number of bows. If the red of the second bow falls upon the green of the first, the result is to give a bow with an abnormally wide yellow band, since red and green light when mixed form yellow. This is a very common type of bow, one showing mainly red and yellow, with little or no green or blue.`
+      },
+      {
+        title: 'Grandfather Passage',
+        text: `You wished to know all about my grandfather. Well, he is nearly ninety-three years old. He dresses himself in an ancient black frock coat, usually minus several buttons; yet he still thinks as swiftly as ever. A long, flowing beard clings to his chin, giving those who observe him a pronounced feeling of the utmost respect. When he speaks, his voice is just a bit cracked and quivers a trifle. Twice each day he plays skillfully and with zest upon our small organ. Except in the winter when the ooze or snow or ice prevents, he slowly takes a short walk in the open air each day. We have often urged him to walk more and smoke less, but he always answers, “Banana oil!” Grandfather likes to be modern in his language.`
+      },
+      {
+        title: 'Articulation Focus',
+        text: `Please pack the bags carefully. Take the tickets to the desk. Ask about the costs and the next steps. The results matter. We need the facts first. List the strengths and the risks. She texts the facts first. It took six months. Connect with the team tonight. What time did they ask? Thought about the task. Night after night we practiced. Paid the costs. Desk by the window. Asked about the risks. Complete every final sound: t, d, k, s, p. Clarity lives at the ends of words.`
+      },
+      {
+        title: 'Calm & Cadence',
+        text: `Breathe in slowly. Feel the belly expand. Shoulders stay quiet. Exhale and begin. Speak in short phrases. Pause between ideas. Let the voice settle lower. Feel the chest vibrate. Open the mouth a little more than usual. Finish every consonant. End statements with a gentle downward tone. Silence is part of the music. Slow is strong. Clear is confident. Depth comes from ease, not force.`
+      },
+      {
+        title: 'Pitch Glide Sentences',
+        text: `Start mid-range: “Good morning, how are you today?” Slide slightly lower: “I am speaking from a calm, supported place.” Stay low and steady: “This pitch feels grounded and easy to sustain.” Rise a little for variety: “Questions can lift, then return home.” Back to the target: “Authority lives in the lower third of my comfortable range.” Hold the last phrase on one comfortable low note: “I choose resonance over strain.”`
+      }
+    ];
+
+    let passageIdx = 0;
+    const passageNav = document.getElementById('passageNav');
+    const passageText = document.getElementById('passageText');
+    const passageLabel = document.getElementById('passageLabel');
+
+    passages.forEach((p, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = p.title;
+      if (i === 0) btn.classList.add('active');
+      btn.addEventListener('click', () => {
+        passageIdx = i;
+        passageNav.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderPassage();
+      });
+      passageNav.appendChild(btn);
+    });
+
+    function renderPassage() {
+      const p = passages[passageIdx];
+      passageLabel.textContent = p.title;
+      passageText.textContent = p.text;
+    }
+    renderPassage();
+
+    // ========== Depth exercises ==========
+    const depthExercises = [
+      {
+        title: '1. Diaphragmatic breathing',
+        time: 60,
+        body: `<p>Sit or stand tall. One hand on belly, one on chest. Inhale through the nose for 4 counts so the belly expands and the chest stays relatively still. Exhale slowly for 6 counts. Repeat. This is the foundation of a supported, deeper voice.</p>`
+      },
+      {
+        title: '2. Gentle humming (chest resonance)',
+        time: 90,
+        body: `<p>Hum a comfortable mid-low “mmm”. Feel vibration in the lips and especially the chest (hand on sternum). Keep the throat relaxed. Slide slightly lower if it stays easy. 5–6 seconds per hum, rest, repeat.</p>`
+      },
+      {
+        title: '3. Pitch glides downward',
+        time: 90,
+        body: `<p>Start on a comfortable mid pitch on “ah” or “oo” and slide smoothly downward to your lowest <em>comfortable</em> clear note. Stop before strain or heavy fry. Do 8–10 glides. This trains coordination in the lower range.</p>`
+      },
+      {
+        title: '4. Lip trills / straw phonation',
+        time: 60,
+        body: `<p>Blow air through loosely closed lips (or through a drinking straw) while making a gentle voiced sound. Keep airflow steady and pitch comfortable/low. This reduces throat tension and balances air pressure on the folds.</p>`
+      },
+      {
+        title: '5. Speak at target pitch',
+        time: 120,
+        body: `<p>Using the suggested speaking pitch from the Range tab (or a pitch slightly below your habitual voice), read a short paragraph slowly. Focus on chest vibration, relaxed jaw, and finishing consonants. Use the <strong>Read Aloud</strong> tab for full passages.</p>`
+      }
+    ];
+
+    let depthIdx = 0;
+    const depthContainer = document.getElementById('depthExercises');
+    const depthProgress = document.getElementById('depthProgress');
+
+    function renderDepth() {
+      const ex = depthExercises[depthIdx];
+      depthContainer.innerHTML = `
+        <div class="exercise">
+          <h4>${ex.title}</h4>
+          ${ex.body}
+          <p style="margin-top:8px;color:var(--accent3);font-size:0.88rem;">Suggested time: ~${ex.time}s</p>
+        </div>`;
+      depthProgress.querySelectorAll('.progress-step').forEach((s, i) => {
+        s.classList.remove('done', 'current');
+        if (i < depthIdx) s.classList.add('done');
+        if (i === depthIdx) s.classList.add('current');
+      });
+    }
+    renderDepth();
+
+    document.getElementById('prevDepth').addEventListener('click', () => {
+      if (depthIdx > 0) { depthIdx--; renderDepth(); }
+    });
+    document.getElementById('nextDepth').addEventListener('click', () => {
+      if (depthIdx < depthExercises.length - 1) { depthIdx++; renderDepth(); }
+    });
+
+    let depthTimerId = null;
+    document.getElementById('startDepthTimer').addEventListener('click', function () {
+      const el = document.getElementById('depthTimer');
+      el.style.display = 'block';
+      let left = depthExercises[depthIdx].time;
+      el.textContent = formatTime(left);
+      if (depthTimerId) clearInterval(depthTimerId);
+      depthTimerId = setInterval(() => {
+        left--;
+        el.textContent = formatTime(left);
+        if (left <= 0) {
+          clearInterval(depthTimerId);
+          el.textContent = 'Done ✓';
+        }
+      }, 1000);
+    });
+    function formatTime(s) {
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`;
+    }
+
+    // ========== Tongue twisters ==========
+    const twisters = [
+      { text: 'Red leather, yellow leather', tip: 'R / L contrast' },
+      { text: 'Unique New York', tip: 'Vowel transitions' },
+      { text: 'She sells seashells by the seashore', tip: 'S / SH' },
+      { text: 'Peter Piper picked a peck of pickled peppers', tip: 'P / plosives' },
+      { text: 'The thirty-three thieves thought that they thrilled the throne throughout Thursday', tip: 'TH' },
+      { text: 'How much wood would a woodchuck chuck if a woodchuck could chuck wood?', tip: 'W / rhythm' },
+      { text: 'Irish wristwatch, Swiss wristwatch', tip: 'R / S clusters' },
+      { text: 'Six sleek swans swam swiftly southwards', tip: 'S clusters' }
+    ];
+    const twisterBox = document.getElementById('twisters');
+    twisters.forEach((t) => {
+      const div = document.createElement('div');
+      div.className = 'twister';
+      div.innerHTML = `<p>${t.text}</p><small>${t.tip}</small>`;
+      div.addEventListener('click', () => {
+        document.querySelectorAll('.twister').forEach(x => x.classList.remove('active'));
+        div.classList.add('active');
+      });
+      twisterBox.appendChild(div);
+    });
+
+    // ========== Recording ==========
+    let mediaRecorder = null;
+    let recChunks = [];
+    const recStart = document.getElementById('recStart');
+    const recStop = document.getElementById('recStop');
+    const recStatus = document.getElementById('recStatus');
+    const recordingsEl = document.getElementById('recordings');
+
+    recStart.addEventListener('click', async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        recChunks = [];
+        mediaRecorder.ondataavailable = e => { if (e.data.size) recChunks.push(e.data); };
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recChunks, { type: 'audio/webm' });
+          const url = URL.createObjectURL(blob);
+          const wrap = document.createElement('div');
+          wrap.style.marginTop = '12px';
+          wrap.innerHTML = `<audio controls src="${url}"></audio>
+            <div style="margin-top:6px;"><button class="btn btn-ghost" style="font-size:0.8rem;padding:6px 10px;" onclick="this.parentElement.parentElement.remove()">Remove</button></div>`;
+          recordingsEl.prepend(wrap);
+          stream.getTracks().forEach(t => t.stop());
+          recStatus.innerHTML = '';
+        };
+        mediaRecorder.start();
+        recStart.disabled = true;
+        recStop.disabled = false;
+        recStatus.innerHTML = '<span class="rec-indicator"><span class="rec-dot"></span> Recording…</span>';
+      } catch (e) {
+        recStatus.textContent = 'Could not access microphone. See the help on the Vocal Range tab.';
+      }
+    });
+    recStop.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+      recStart.disabled = false;
+      recStop.disabled = true;
+    });
+  </script>
+</body>
+</html>
