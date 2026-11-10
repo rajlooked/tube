@@ -408,13 +408,18 @@
         </div>
 
         <h3>Capture your range</h3>
-        <p>Warm up first (hum for 30s). Then hold your <strong>lowest comfortable clear note</strong> (not fry) and click Capture Low. Repeat for highest comfortable chest/mixed note.</p>
+        <p>Warm up first (hum for 30s). Tap a button, then make sound for a few seconds — the app finds the lowest or highest clear pitch in that window automatically.</p>
+        <ul style="margin-bottom:10px;">
+          <li><strong>Lowest:</strong> start mid-range on “ah” or “mm”, slowly slide down, stay on your lowest <em>clear</em> note until the timer ends.</li>
+          <li><strong>Highest:</strong> start mid-range, slowly slide up, stay on your highest comfortable clear note until the timer ends.</li>
+        </ul>
 
         <div class="btn-row">
-          <button class="btn btn-success" id="captureLowBtn" disabled>Capture Lowest</button>
-          <button class="btn btn-warn" id="captureHighBtn" disabled>Capture Highest</button>
+          <button class="btn btn-success" id="captureLowBtn" disabled>Capture Lowest (5s)</button>
+          <button class="btn btn-warn" id="captureHighBtn" disabled>Capture Highest (5s)</button>
           <button class="btn btn-ghost" id="resetRangeBtn">Reset</button>
         </div>
+        <div id="captureCountdown" style="display:none;margin-top:10px;font-size:1.1rem;font-weight:700;color:var(--accent3);"></div>
 
         <div class="range-result">
           <div class="range-box">
@@ -673,6 +678,12 @@
     let lowMidi = null, highMidi = null;
     let lowFreq = null, highFreq = null;
 
+    // Timed capture mode: 'low' | 'high' | null
+    let captureMode = null;
+    let captureSamples = []; // freqs collected during window
+    let captureEndsAt = 0;
+    const CAPTURE_MS = 5000;
+
     const liveNote = document.getElementById('liveNote');
     const liveHz = document.getElementById('liveHz');
     const pitchStatus = document.getElementById('pitchStatus');
@@ -683,6 +694,7 @@
     const captureHighBtn = document.getElementById('captureHighBtn');
     const micAlert = document.getElementById('micAlert');
     const micAlertMsg = document.getElementById('micAlertMsg');
+    const captureCountdown = document.getElementById('captureCountdown');
 
     function showMicHelp(msg) {
       micAlertMsg.textContent = msg || 'The browser blocked or could not access the microphone.';
@@ -755,6 +767,9 @@
       if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
       if (audioCtx) audioCtx.close();
       audioCtx = null; analyser = null; mediaStream = null;
+      captureMode = null;
+      captureSamples = [];
+      if (captureCountdown) captureCountdown.style.display = 'none';
       startMicBtn.disabled = false;
       stopMicBtn.disabled = true;
       captureLowBtn.disabled = true;
@@ -765,6 +780,56 @@
       volumeMeter.style.width = '0%';
       document.getElementById('readLiveNote').textContent = '—';
       document.getElementById('readLiveHz').textContent = '';
+    }
+
+    function finishCapture() {
+      const mode = captureMode;
+      captureMode = null;
+      captureCountdown.style.display = 'none';
+      captureLowBtn.disabled = false;
+      captureHighBtn.disabled = false;
+
+      if (!captureSamples.length) {
+        pitchStatus.textContent = 'No clear pitch detected — try again, hold a steady tone';
+        return;
+      }
+
+      // Prefer stable pitches: use percentile so brief spikes don't dominate
+      const sorted = captureSamples.slice().sort((a, b) => a - b);
+      let chosen;
+      if (mode === 'low') {
+        // 15th percentile ≈ solid low without pure fry spikes
+        chosen = sorted[Math.floor(sorted.length * 0.15)];
+      } else {
+        // 85th percentile ≈ solid high without brief squeaks
+        chosen = sorted[Math.floor(sorted.length * 0.85)];
+      }
+
+      if (mode === 'low') {
+        lowFreq = chosen;
+        lowMidi = freqToNote(chosen).midi;
+        pitchStatus.textContent = `Lowest captured: ${freqToNote(chosen).name} (${chosen.toFixed(1)} Hz)`;
+      } else {
+        highFreq = chosen;
+        highMidi = freqToNote(chosen).midi;
+        pitchStatus.textContent = `Highest captured: ${freqToNote(chosen).name} (${chosen.toFixed(1)} Hz)`;
+      }
+      updateRangeUI();
+    }
+
+    function startCapture(mode) {
+      if (!analyser) {
+        pitchStatus.textContent = 'Start the microphone first';
+        return;
+      }
+      captureMode = mode;
+      captureSamples = [];
+      captureEndsAt = performance.now() + CAPTURE_MS;
+      captureLowBtn.disabled = true;
+      captureHighBtn.disabled = true;
+      captureCountdown.style.display = 'block';
+      const label = mode === 'low' ? 'Slide down to your lowest CLEAR note' : 'Slide up to your highest CLEAR note';
+      pitchStatus.textContent = label + '…';
     }
 
     function detectLoop() {
@@ -784,12 +849,17 @@
         const note = freqToNote(freq);
         liveNote.textContent = note.name;
         liveHz.textContent = `Hz: ${freq.toFixed(1)}`;
-        pitchStatus.textContent = 'Hold steady to capture';
         document.getElementById('readLiveNote').textContent = note.name;
         document.getElementById('readLiveHz').textContent = ' · ' + freq.toFixed(0) + ' Hz';
+
+        if (captureMode) {
+          captureSamples.push(freq);
+        } else {
+          pitchStatus.textContent = 'Listening… use Capture buttons when ready';
+        }
       } else {
         currentFreq = null;
-        if (rms < 0.008) {
+        if (rms < 0.008 && !captureMode) {
           liveNote.textContent = '—';
           liveHz.textContent = 'Hz: —';
           pitchStatus.textContent = 'Speak or hum into the mic…';
@@ -797,6 +867,16 @@
           document.getElementById('readLiveHz').textContent = '';
         }
       }
+
+      if (captureMode) {
+        const left = Math.max(0, captureEndsAt - performance.now());
+        const secs = Math.ceil(left / 1000);
+        captureCountdown.textContent = captureMode === 'low'
+          ? `Capturing lowest… ${secs}s — keep sliding/holding low`
+          : `Capturing highest… ${secs}s — keep sliding/holding high`;
+        if (left <= 0) finishCapture();
+      }
+
       rafId = requestAnimationFrame(detectLoop);
     }
 
@@ -844,22 +924,12 @@
 
     startMicBtn.addEventListener('click', startMic);
     stopMicBtn.addEventListener('click', stopMic);
-    captureLowBtn.addEventListener('click', () => {
-      if (!currentFreq) { pitchStatus.textContent = 'No clear pitch detected — hold a steady note'; return; }
-      lowFreq = currentFreq;
-      lowMidi = freqToNote(currentFreq).midi;
-      updateRangeUI();
-      pitchStatus.textContent = `Lowest captured: ${freqToNote(currentFreq).name}`;
-    });
-    captureHighBtn.addEventListener('click', () => {
-      if (!currentFreq) { pitchStatus.textContent = 'No clear pitch detected — hold a steady note'; return; }
-      highFreq = currentFreq;
-      highMidi = freqToNote(currentFreq).midi;
-      updateRangeUI();
-      pitchStatus.textContent = `Highest captured: ${freqToNote(currentFreq).name}`;
-    });
+    captureLowBtn.addEventListener('click', () => startCapture('low'));
+    captureHighBtn.addEventListener('click', () => startCapture('high'));
     document.getElementById('resetRangeBtn').addEventListener('click', () => {
       lowMidi = highMidi = lowFreq = highFreq = null;
+      captureMode = null;
+      captureCountdown.style.display = 'none';
       updateRangeUI();
     });
 
